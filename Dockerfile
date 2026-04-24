@@ -1,20 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1 AS deps
-WORKDIR /app
-COPY package.json bun.lock* bun.lockb* ./
-RUN bun install --frozen-lockfile
+FROM oven/bun:latest as build
 
-FROM oven/bun:1 AS build
 WORKDIR /app
-# vue-tsc (#!/usr/bin/env node) ist nicht 100% kompatibel mit Bun's Node-Wrapper
-# und scheitert beim Auflösen von .vue-Modulen. Echtes Node nachinstallieren.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=deps /app/node_modules ./node_modules
+
+COPY package.json ./
+COPY bun.lock ./
 COPY . .
-RUN bun run build
+RUN bun install
+
+RUN bun run build-only
 
 FROM caddy:2-alpine AS runtime
 COPY Caddyfile /etc/caddy/Caddyfile
