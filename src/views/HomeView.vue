@@ -6,8 +6,7 @@ const router = useRouter()
 const joinId = ref('')
 
 function createRoom() {
-  const id = crypto.randomUUID()
-  router.push({ name: 'room', params: { hostId: id }, query: { host: '1' } })
+  router.push({ name: 'host' })
 }
 
 function joinRoom() {

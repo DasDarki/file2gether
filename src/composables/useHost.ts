@@ -25,8 +25,7 @@ export function useHost() {
   const peers = new Map<string, PeerEntry>()
 
   function start() {
-    const id = crypto.randomUUID()
-    const p = new Peer(id)
+    const p = new Peer()
 
     p.on('open', (assignedId) => {
       hostId.value = assignedId

@@ -3,8 +3,6 @@ import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import { useHost } from '@/composables/useHost'
 import type { MediaKind } from '@/composables/types'
 
-const props = defineProps<{ hostId: string }>()
-
 const host = useHost()
 host.start()
 
@@ -17,7 +15,9 @@ const mediaKind = ref<MediaKind>('video')
 const captured = ref(false)
 const copied = ref(false)
 
-const shareLink = computed(() => `${location.origin}/room/${props.hostId}`)
+const shareLink = computed(() =>
+  host.hostId.value ? `${location.origin}/room/${host.hostId.value}` : '',
+)
 
 function pickFile() {
   fileInput.value?.click()
@@ -98,6 +98,7 @@ function emitState() {
 }
 
 async function copyLink() {
+  if (!shareLink.value) return
   try {
     await navigator.clipboard.writeText(shareLink.value)
     copied.value = true
@@ -127,17 +128,15 @@ onBeforeUnmount(() => {
       <div class="card room__id-card">
         <span class="room__chip room__chip--accent">Du bist Host</span>
         <h3>Raum-Link</h3>
-        <p class="room__id">{{ shareLink }}</p>
-        <button class="btn btn--primary" @click="copyLink">
+        <p v-if="host.ready.value" class="room__id">{{ shareLink }}</p>
+        <p v-else class="room__id room__id--pending">Hole Raum-ID vom Server…</p>
+        <button class="btn btn--primary" @click="copyLink" :disabled="!host.ready.value">
           {{ copied ? 'Kopiert!' : 'Link kopieren' }}
         </button>
         <div class="room__meta">
           <span class="room__dot" :class="{ 'room__dot--live': host.ready.value }" />
-          <span v-if="!host.ready.value">Verbinde…</span>
-          <span v-else>
-            {{ host.peerCount.value }} Zuschauer
-            {{ host.peerCount.value === 1 ? '' : '' }}
-          </span>
+          <span v-if="!host.ready.value">Verbinde mit Signaling…</span>
+          <span v-else>{{ host.peerCount.value }} Zuschauer</span>
         </div>
       </div>
 
@@ -263,6 +262,11 @@ onBeforeUnmount(() => {
     background: $bg;
     border: 1px solid $border-soft;
     border-radius: $radius-sm;
+
+    &--pending {
+      color: $text-faint;
+      font-style: italic;
+    }
   }
 
   &__meta {
