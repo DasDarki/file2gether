@@ -1,0 +1,25 @@
+// design tokens
+$bg:           #0c0c10;
+$bg-elevated:  #15151c;
+$bg-hover:     #1d1d27;
+$border:       #25252f;
+$border-soft:  #1c1c25;
+
+$text:         #e7e7ee;
+$text-muted:   #8a8a99;
+$text-faint:   #5a5a68;
+
+$accent:       #8b5cf6;
+$accent-soft:  rgba(139, 92, 246, 0.14);
+$accent-hover: #a07aff;
+
+$danger:       #f43f5e;
+$success:      #34d399;
+
+$radius-sm: 8px;
+$radius:    12px;
+$radius-lg: 18px;
+
+$shadow:    0 12px 40px rgba(0, 0, 0, 0.45);
+
+$ease: cubic-bezier(0.22, 0.61, 0.36, 1);

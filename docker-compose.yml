@@ -1,0 +1,16 @@
+services:
+  file2gether:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: file2gether:latest
+    container_name: file2gether
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    networks:
+      - f2g-external
+
+networks:
+  f2g-external:
+    external: true
