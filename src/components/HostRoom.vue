@@ -7,7 +7,7 @@ const host = useHost()
 host.start()
 
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
-const videoEl = useTemplateRef<HTMLVideoElement>('videoEl')
+const videoEl = useTemplateRef<HTMLMediaElement>('videoEl')
 
 const file = ref<File | null>(null)
 const blobUrl = ref<string>('')
@@ -47,8 +47,8 @@ function loadFile(f: File) {
   host.setMeta({ name: f.name, mediaKind: mediaKind.value })
 }
 
-function captureFromVideo(el: HTMLVideoElement): MediaStream {
-  const anyEl = el as HTMLVideoElement & {
+function captureFromVideo(el: HTMLMediaElement): MediaStream {
+  const anyEl = el as HTMLMediaElement & {
     captureStream?: () => MediaStream
     mozCaptureStream?: () => MediaStream
   }
@@ -56,6 +56,9 @@ function captureFromVideo(el: HTMLVideoElement): MediaStream {
   if (typeof anyEl.mozCaptureStream === 'function') return anyEl.mozCaptureStream()
   throw new Error('captureStream wird vom Browser nicht unterstützt')
 }
+
+let stateTicker: number | null = null
+let lastTickAt = 0
 
 function onPlaying() {
   const el = videoEl.value
@@ -71,11 +74,13 @@ function onPlaying() {
   }
   emitState()
   host.broadcast({ type: 'play', currentTime: el.currentTime })
+  startTicker()
 }
 
 function onPause() {
   const el = videoEl.value
   if (!el) return
+  stopTicker()
   emitState()
   host.broadcast({ type: 'pause', currentTime: el.currentTime })
 }
@@ -87,14 +92,39 @@ function onSeeked() {
   host.broadcast({ type: 'seek', currentTime: el.currentTime })
 }
 
+function onMeta() {
+  emitState()
+}
+
 function emitState() {
   const el = videoEl.value
   if (!el) return
-  host.updateState({
+  const next = {
     currentTime: el.currentTime,
     duration: isFinite(el.duration) ? el.duration : 0,
     paused: el.paused,
-  })
+  }
+  host.updateState(next)
+  host.broadcast({ type: 'state', ...next })
+}
+
+function startTicker() {
+  if (stateTicker !== null) return
+  lastTickAt = 0
+  stateTicker = window.setInterval(() => {
+    const el = videoEl.value
+    if (!el || el.paused) return
+    const now = performance.now()
+    if (now - lastTickAt < 900) return
+    lastTickAt = now
+    emitState()
+  }, 250)
+}
+
+function stopTicker() {
+  if (stateTicker === null) return
+  clearInterval(stateTicker)
+  stateTicker = null
 }
 
 async function copyLink() {
@@ -118,6 +148,7 @@ function clearFile() {
 }
 
 onBeforeUnmount(() => {
+  stopTicker()
   if (blobUrl.value) URL.revokeObjectURL(blobUrl.value)
 })
 </script>
@@ -182,20 +213,24 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else class="room__player" :data-kind="mediaKind">
-        <video
+        <div v-if="mediaKind === 'audio'" class="room__audio-cover">
+          <div class="room__audio-icon">♪</div>
+          <span class="room__audio-name">{{ file?.name }}</span>
+        </div>
+        <component
+          :is="mediaKind === 'audio' ? 'audio' : 'video'"
           ref="videoEl"
-          class="room__video"
+          class="room__media"
+          :class="{ 'room__media--audio': mediaKind === 'audio' }"
           :src="blobUrl"
           controls
           playsinline
           @playing="onPlaying"
           @pause="onPause"
           @seeked="onSeeked"
+          @loadedmetadata="onMeta"
+          @durationchange="onMeta"
         />
-        <div v-if="mediaKind === 'audio'" class="room__audio-overlay">
-          <div class="room__audio-icon">♪</div>
-          <span>Audio</span>
-        </div>
       </div>
     </section>
   </div>
@@ -367,37 +402,58 @@ onBeforeUnmount(() => {
 
   &__player {
     flex: 1;
-    position: relative;
+    display: flex;
+    flex-direction: column;
     background: black;
     border-radius: $radius-lg;
     overflow: hidden;
     border: 1px solid $border-soft;
+
+    &[data-kind='audio'] {
+      background: linear-gradient(135deg, #1a1a24, #0f0f16);
+    }
   }
 
-  &__video {
+  &__media {
     width: 100%;
-    height: 100%;
     display: block;
-    aspect-ratio: 16 / 9;
     background: black;
+
+    &:not(.room__media--audio) {
+      flex: 1;
+      min-height: 0;
+      max-height: 70vh;
+      object-fit: contain;
+    }
+
+    &--audio {
+      background: transparent;
+      padding: 16px 20px 20px;
+    }
   }
 
-  &__audio-overlay {
-    position: absolute;
-    inset: 0;
+  &__audio-cover {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 18px;
+    padding: 60px 24px;
     color: $text-muted;
-    pointer-events: none;
-    background: linear-gradient(135deg, #1a1a24, #0f0f16);
   }
 
   &__audio-icon {
-    font-size: 64px;
+    font-size: 72px;
     color: $accent;
+    line-height: 1;
+  }
+
+  &__audio-name {
+    font-size: 14px;
+    text-align: center;
+    word-break: break-word;
+    max-width: 80%;
   }
 }
 
